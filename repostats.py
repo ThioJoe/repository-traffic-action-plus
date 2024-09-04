@@ -34,10 +34,25 @@ class RepoStats:
         unique_column = f"unique_{metric_type}"
         counts = {}
         for item in data[metric_type]:
-            counts[item["timestamp"]] = {
-                total_column: item["count"],
-                unique_column: item["uniques"]
-            }
+            date = pd.to_datetime(item["timestamp"], utc=True).date()
+            if date not in counts:
+                counts[date] = {total_column: 0, unique_column: 0}
+            counts[date][total_column] += item["count"]
+            counts[date][unique_column] += item["uniques"]
+        
+        # Create a complete date range for the last 14 days
+        end_date = pd.Timestamp.now(tz='UTC').floor('D')
+        start_date = end_date - pd.Timedelta(days=13)
+        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+        
+        # Fill in missing dates with zero values
+        for date in date_range:
+            if date.date() not in counts:
+                counts[date.date()] = {
+                    total_column: 0,
+                    unique_column: 0
+                }
+        
         return counts
 
     def _create_dataframe(self, data, metric_type, file_path):
@@ -56,7 +71,20 @@ class RepoStats:
                 data=data, orient="index", columns=[total_column, unique_column])
         
         # Convert index to datetime, handling timezone-aware strings
-        dataframe.index = pd.to_datetime(dataframe.index, utc=True).tz_convert(None)
+        dataframe.index = pd.to_datetime(dataframe.index, utc=True)
+        
+        # Handle duplicate dates by summing the values
+        dataframe = dataframe.groupby(dataframe.index).sum()
+        
+        # Create a complete date range
+        date_range = pd.date_range(start=dataframe.index.min(), end=dataframe.index.max(), freq='D')
+        
+        # Reindex the dataframe with the complete date range, filling missing values with 0
+        dataframe = dataframe.reindex(date_range, fill_value=0)
+        
+        # Convert to timezone-naive
+        dataframe.index = dataframe.index.tz_convert(None)
+        
         dataframe.index.name = "_date"
         return dataframe
 

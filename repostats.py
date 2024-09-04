@@ -41,23 +41,22 @@ class RepoStats:
         return counts
 
     def _create_dataframe(self, data, metric_type, file_path):
-
-        total_column = "total_{}".format(metric_type)
-        unique_column = "unique_{}".format(metric_type)
-
+        total_column = f"total_{metric_type}"
+        unique_column = f"unique_{metric_type}"
         try:
-            print("Attempt to read existing metrics for: ", metric_type," in ", file_path)
-            old_data = pd.read_csv(file_path, index_col="_date", parse_dates=[
-                "_date"]).to_dict(orient="index")
+            print(f"Attempt to read existing metrics for: {metric_type} in {file_path}")
+            old_data = pd.read_csv(file_path, index_col="_date", parse_dates=["_date"]).to_dict(orient="index")
             updated_dict = self._merge_dict(old_data, data, metric_type)
             dataframe = pd.DataFrame.from_dict(
                 data=updated_dict, orient="index", columns=[total_column, unique_column])
         except Exception as e:
             print('Exception type is: ', e.__class__.__name__)
-            print("Starting new metrics record for: ", metric_type," in ", file_path)
+            print(f"Starting new metrics record for: {metric_type} in {file_path}")
             dataframe = pd.DataFrame.from_dict(
                 data=data, orient="index", columns=[total_column, unique_column])
-
+        
+        # Convert index to datetime, handling timezone-aware strings
+        dataframe.index = pd.to_datetime(dataframe.index, utc=True).tz_convert(None)
         dataframe.index.name = "_date"
         return dataframe
 

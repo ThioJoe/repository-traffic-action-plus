@@ -3,6 +3,7 @@ import json
 from repostats import RepoStats
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import pandas as pd
 
 import requests
 
@@ -47,10 +48,18 @@ def create_plots(views_frame, clones_frame, plots_path):
 
     for i, (frame, title) in enumerate([(views_frame, 'Views'), (clones_frame, 'Clones')]):
         if not frame.empty:
-            ax = frame.tail(30).plot(ax=axes[i])
+            # Ensure the index is datetime (should already be handled in RepoStats)
+            frame.index = pd.to_datetime(frame.index, utc=True).tz_convert(None)
+            
+            # Sort the dataframe by date
+            frame = frame.sort_index()
+            
+            # Plot only the last 30 days
+            last_30_days = frame.last('30D')
+            ax = last_30_days.plot(ax=axes[i])
             
             # Rotate and align the tick labels so they look better
-            ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax.xaxis.set_major_locator(mdates.DayLocator(interval=5))
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
             plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
             

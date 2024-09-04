@@ -28,16 +28,16 @@ def main():
     
     views_snapshot, views_cumulative = repo_stats.get_views(views_path)
     clones_snapshot, clones_cumulative = repo_stats.get_clones(clones_path)
-    referral_sources_frame = repo_stats.get_top_referral_sources(referral_sources_path)
-    referral_paths_frame = repo_stats.get_top_referral_paths(referral_paths_path)
+    referral_sources_snapshot, referral_sources_cumulative = repo_stats.get_top_referral_sources(referral_sources_path)
+    referral_paths_snapshot, referral_paths_cumulative = repo_stats.get_top_referral_paths(referral_paths_path)
     
     if os.environ.get("UPLOAD_KEY"):
-        upload(repo_name, views_cumulative, clones_cumulative, referral_sources_frame, referral_paths_frame, os.environ["UPLOAD_KEY"])
+        upload(repo_name, views_cumulative, clones_cumulative, referral_sources_cumulative, referral_paths_cumulative, os.environ["UPLOAD_KEY"])
     else:
         views_cumulative.to_csv(views_path)
         clones_cumulative.to_csv(clones_path)
-        referral_sources_frame.to_csv(referral_sources_path)
-        referral_paths_frame.to_csv(referral_paths_path)
+        referral_sources_cumulative.to_csv(referral_sources_path)
+        referral_paths_cumulative.to_csv(referral_paths_path)
         create_plots(views_snapshot, clones_snapshot, plots_path)
 
 

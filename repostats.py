@@ -30,7 +30,7 @@ class RepoStats:
         snapshot_df = self._create_snapshot_dataframe(view_counts, "views")
         cumulative_df = self._create_cumulative_dataframe(view_counts, "views", views_path)
         return snapshot_df, cumulative_df
-
+    
     def get_clones(self, clones_path):
         clones = self._make_request("clones", {"per": "day"})
         clone_counts = self._get_counts(clones, "clones")
@@ -48,13 +48,28 @@ class RepoStats:
         df.to_csv(snapshot_path)
         return df
     
+    def _create_referral_snapshot(self, data, metric_type):
+        if metric_type == "referral_sources":
+            columns = ["referrer", "count", "uniques"]
+        else:  # referral_paths
+            columns = ["path", "title", "count", "uniques"]
+
+        df = pd.DataFrame(data, columns=columns)
+        snapshot_path = os.path.join(self.snapshot_folder, f"{metric_type}_{datetime.now().strftime('%Y-%m-%d')}.csv")
+        df.to_csv(snapshot_path, index=False)
+        return df
+    
     def get_top_referral_sources(self, referral_sources_path):
         sources = self._make_request("popular/referrers")
-        return self._create_referral_dataframe(sources, "referral_sources", referral_sources_path)
+        snapshot_df = self._create_referral_snapshot(sources, "referral_sources")
+        cumulative_df = self._create_referral_dataframe(sources, "referral_sources", referral_sources_path)
+        return snapshot_df, cumulative_df
 
     def get_top_referral_paths(self, referral_paths_path):
         paths = self._make_request("popular/paths")
-        return self._create_referral_dataframe(paths, "referral_paths", referral_paths_path)
+        snapshot_df = self._create_referral_snapshot(paths, "referral_paths")
+        cumulative_df = self._create_referral_dataframe(paths, "referral_paths", referral_paths_path)
+        return snapshot_df, cumulative_df
     
     def _create_referral_dataframe(self, data, metric_type, file_path):
         if metric_type == "referral_sources":

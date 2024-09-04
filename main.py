@@ -31,6 +31,15 @@ def main():
     referral_sources_snapshot, referral_sources_cumulative = repo_stats.get_top_referral_sources(referral_sources_path)
     referral_paths_snapshot, referral_paths_cumulative = repo_stats.get_top_referral_paths(referral_paths_path)
     
+    # Zip the snapshot folder
+    zip_file = repo_stats.zip_snapshot_folder()
+    
+    # Check the zip file exists and is not empty, then delete the snapshot folder. Otherwise, just move on without deleting the folder.
+    if os.path.exists(zip_file) and os.path.getsize(zip_file) > 0:
+        repo_stats.delete_snapshot_folder()
+    else:
+        print(f"Warning: Zip file not created or empty. Snapshot folder not deleted.")
+    
     if os.environ.get("UPLOAD_KEY"):
         upload(repo_name, views_cumulative, clones_cumulative, referral_sources_cumulative, referral_paths_cumulative, os.environ["UPLOAD_KEY"])
     else:
@@ -39,6 +48,8 @@ def main():
         referral_sources_cumulative.to_csv(referral_sources_path)
         referral_paths_cumulative.to_csv(referral_paths_path)
         create_plots(views_snapshot, clones_snapshot, plots_path)
+    
+    print(f"Snapshot data zipped to: {zip_file}")
 
 
 def upload(repo_name, views_frame, clones_frame, referral_sources_frame, referral_paths_frame, api_key):

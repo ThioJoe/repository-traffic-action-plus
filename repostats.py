@@ -3,6 +3,8 @@ import requests
 from typing import Dict, Any
 import os
 from datetime import datetime
+import zipfile
+import shutil
 
 class RepoStats:
     def __init__(self, repo: str, token: str, workplace_path: str) -> None:
@@ -174,3 +176,27 @@ class RepoStats:
                 if new_data[key][total_column] > old_data[key][total_column] or new_data[key][unique_column] > old_data[key][unique_column]:
                     old_data[key] = new_data[key]
         return old_data
+    
+    def zip_snapshot_folder(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        zip_filename = os.path.join(self.workplace_path, f"{today}_snapshot.zip")
+        
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(self.snapshot_folder):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, self.snapshot_folder)
+                    zipf.write(file_path, arcname)
+        
+        print(f"Snapshot folder zipped to: {zip_filename}")
+        return zip_filename
+    
+    def delete_snapshot_folder(self):
+        if os.path.exists(self.snapshot_folder):
+            try:
+                shutil.rmtree(self.snapshot_folder)
+                print(f"Snapshot folder deleted: {self.snapshot_folder}")
+            except Exception as e:
+                print(f"Error deleting snapshot folder: {e}")
+        else:
+            print(f"Snapshot folder not found: {self.snapshot_folder}")

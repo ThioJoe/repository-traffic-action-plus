@@ -81,7 +81,8 @@ class RepoStats:
         
         try:
             print(f"Attempt to read existing metrics for: {metric_type} in {file_path}")
-            old_data = pd.read_csv(file_path)
+            old_data = pd.read_csv(file_path, index_col=0)  # Read the first column as index
+            old_data = old_data.reset_index(drop=True)  # Reset and drop the old index
             # Combine old and new data, keeping the latest data for each referrer/path
             if metric_type == "referral_sources":
                 combined = pd.concat([old_data, dataframe]).drop_duplicates(subset=["referrer"], keep="last")

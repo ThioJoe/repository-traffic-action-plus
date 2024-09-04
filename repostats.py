@@ -23,8 +23,40 @@ class RepoStats:
         clones = self._make_request("clones", {"per": "day"})
         clone_counts = self._get_counts(clones, "clones")
         return self._create_dataframe(clone_counts, "clones", clones_path)
+    
+    def get_top_referral_sources(self, referral_sources_path):
+        sources = self._make_request("popular/referrers")
+        return self._create_referral_dataframe(sources, "referral_sources", referral_sources_path)
 
-    def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def get_top_referral_paths(self, referral_paths_path):
+        paths = self._make_request("popular/paths")
+        return self._create_referral_dataframe(paths, "referral_paths", referral_paths_path)
+    
+    def _create_referral_dataframe(self, data, metric_type, file_path):
+        if metric_type == "referral_sources":
+            columns = ["referrer", "count", "uniques"]
+        else:  # referral_paths
+            columns = ["path", "title", "count", "uniques"]
+
+        dataframe = pd.DataFrame(data, columns=columns)
+        
+        try:
+            print(f"Attempt to read existing metrics for: {metric_type} in {file_path}")
+            old_data = pd.read_csv(file_path)
+            # Combine old and new data, keeping the latest data for each referrer/path
+            if metric_type == "referral_sources":
+                combined = pd.concat([old_data, dataframe]).drop_duplicates(subset=["referrer"], keep="last")
+            else:  # referral_paths
+                combined = pd.concat([old_data, dataframe]).drop_duplicates(subset=["path"], keep="last")
+            dataframe = combined.sort_values("count", ascending=False).reset_index(drop=True)
+        except Exception as e:
+            print('Exception type is: ', e.__class__.__name__)
+            print(f"Starting new metrics record for: {metric_type} in {file_path}")
+
+        dataframe.to_csv(file_path, index=False)
+        return dataframe
+
+    def _make_request(self, endpoint: str, params: dict = None) -> dict:
         response = requests.get(f"{self.base_url}/{endpoint}", headers=self.headers, params=params)
         response.raise_for_status()
         return response.json()

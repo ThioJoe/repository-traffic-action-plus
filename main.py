@@ -13,32 +13,42 @@ def main():
         repo_name = os.environ["REPOSITORY_NAME"]
     else:
         repo_name = os.environ["GITHUB_REPOSITORY"]
-    repo_stats = RepoStats(
-        repo_name, os.environ["TRAFFIC_ACTION_TOKEN"])
-
+    
+    repo_stats = RepoStats(repo_name, os.environ["TRAFFIC_ACTION_TOKEN"])
     workplace_path = "{}/{}".format(os.environ["GITHUB_WORKSPACE"], "traffic")
     if not os.path.exists(workplace_path):
         os.makedirs(workplace_path)
+    
     print("Workplace path: ", workplace_path)
-
     views_path = "{}/{}".format(workplace_path, "views.csv")
     clones_path = "{}/{}".format(workplace_path, "clones.csv")
+    referral_sources_path = "{}/{}".format(workplace_path, "referral_sources.csv")
+    referral_paths_path = "{}/{}".format(workplace_path, "referral_paths.csv")
     plots_path = "{}/{}".format(workplace_path, "plots.png")
-
+    
     views_frame = repo_stats.get_views(views_path)
     clones_frame = repo_stats.get_clones(clones_path)
-
+    referral_sources_frame = repo_stats.get_top_referral_sources(referral_sources_path)
+    referral_paths_frame = repo_stats.get_top_referral_paths(referral_paths_path)
+    
     if os.environ.get("UPLOAD_KEY"):
-        upload(repo_name, views_frame, clones_frame, os.environ["UPLOAD_KEY"])
+        upload(repo_name, views_frame, clones_frame, referral_sources_frame, referral_paths_frame, os.environ["UPLOAD_KEY"])
     else:
         views_frame.to_csv(views_path)
         clones_frame.to_csv(clones_path)
+        referral_sources_frame.to_csv(referral_sources_path)
+        referral_paths_frame.to_csv(referral_paths_path)
         create_plots(views_frame, clones_frame, plots_path)
 
 
-def upload(repo_name, views_frame, clones_frame, api_key):
-    data = {repo_name: json.loads(views_frame.join(
-        clones_frame, how='outer').to_json(orient='index'))}
+def upload(repo_name, views_frame, clones_frame, referral_sources_frame, referral_paths_frame, api_key):
+    data = {
+        repo_name: {
+            "traffic": json.loads(views_frame.join(clones_frame, how='outer').to_json(orient='index')),
+            "referral_sources": json.loads(referral_sources_frame.to_json(orient='records')),
+            "referral_paths": json.loads(referral_paths_frame.to_json(orient='records'))
+        }
+    }
     print(requests.put("http://localhost:3000/api/upload", json=data))
 
 

@@ -2,11 +2,9 @@ import os
 import json
 from repostats import RepoStats
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import pandas as pd
-
+from matplotlib import dates as mdates
 import requests
-
+from datetime import datetime
 
 def main():
     if "REPOSITORY_NAME" in os.environ:
@@ -14,31 +12,33 @@ def main():
     else:
         repo_name = os.environ["GITHUB_REPOSITORY"]
     
-    repo_stats = RepoStats(repo_name, os.environ["TRAFFIC_ACTION_TOKEN"])
-    workplace_path = "{}/{}".format(os.environ["GITHUB_WORKSPACE"], "traffic")
+    workplace_path = os.path.join(os.environ["GITHUB_WORKSPACE"], "traffic")
     if not os.path.exists(workplace_path):
         os.makedirs(workplace_path)
     
     print("Workplace path: ", workplace_path)
-    views_path = "{}/{}".format(workplace_path, "views.csv")
-    clones_path = "{}/{}".format(workplace_path, "clones.csv")
-    referral_sources_path = "{}/{}".format(workplace_path, "referral_sources.csv")
-    referral_paths_path = "{}/{}".format(workplace_path, "referral_paths.csv")
-    plots_path = "{}/{}".format(workplace_path, "plots.png")
     
-    views_frame = repo_stats.get_views(views_path)
-    clones_frame = repo_stats.get_clones(clones_path)
+    repo_stats = RepoStats(repo_name, os.environ["TRAFFIC_ACTION_TOKEN"], workplace_path)
+    
+    views_path = os.path.join(workplace_path, "views.csv")
+    clones_path = os.path.join(workplace_path, "clones.csv")
+    referral_sources_path = os.path.join(workplace_path, "referral_sources.csv")
+    referral_paths_path = os.path.join(workplace_path, "referral_paths.csv")
+    plots_path = os.path.join(workplace_path, "plots.png")
+    
+    views_snapshot, views_cumulative = repo_stats.get_views(views_path)
+    clones_snapshot, clones_cumulative = repo_stats.get_clones(clones_path)
     referral_sources_frame = repo_stats.get_top_referral_sources(referral_sources_path)
     referral_paths_frame = repo_stats.get_top_referral_paths(referral_paths_path)
     
     if os.environ.get("UPLOAD_KEY"):
-        upload(repo_name, views_frame, clones_frame, referral_sources_frame, referral_paths_frame, os.environ["UPLOAD_KEY"])
+        upload(repo_name, views_cumulative, clones_cumulative, referral_sources_frame, referral_paths_frame, os.environ["UPLOAD_KEY"])
     else:
-        views_frame.to_csv(views_path)
-        clones_frame.to_csv(clones_path)
+        views_cumulative.to_csv(views_path)
+        clones_cumulative.to_csv(clones_path)
         referral_sources_frame.to_csv(referral_sources_path)
         referral_paths_frame.to_csv(referral_paths_path)
-        create_plots(views_frame, clones_frame, plots_path)
+        create_plots(views_snapshot, clones_snapshot, plots_path)
 
 
 def upload(repo_name, views_frame, clones_frame, referral_sources_frame, referral_paths_frame, api_key):

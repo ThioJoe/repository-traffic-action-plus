@@ -1,9 +1,11 @@
 import pandas as pd
 import requests
 from typing import Dict, Any
+import os
+from datetime import datetime
 
 class RepoStats:
-    def __init__(self, repo: str, token: str) -> None:
+    def __init__(self, repo: str, token: str, workplace_path: str) -> None:
         print("Repository name: ", repo)
         self.repo = repo
         self.token = token
@@ -13,16 +15,38 @@ class RepoStats:
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28"
         }
+        self.workplace_path = workplace_path
+        self.snapshot_folder = self._create_snapshot_folder()
 
-    def get_views(self, views_path: str):
+    def _create_snapshot_folder(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        snapshot_folder = os.path.join(self.workplace_path, today)
+        os.makedirs(snapshot_folder, exist_ok=True)
+        return snapshot_folder
+
+    def get_views(self, views_path):
         views = self._make_request("views", {"per": "day"})
         view_counts = self._get_counts(views, "views")
-        return self._create_dataframe(view_counts, "views", views_path)
+        snapshot_df = self._create_snapshot_dataframe(view_counts, "views")
+        cumulative_df = self._create_cumulative_dataframe(view_counts, "views", views_path)
+        return snapshot_df, cumulative_df
 
-    def get_clones(self, clones_path: str):
+    def get_clones(self, clones_path):
         clones = self._make_request("clones", {"per": "day"})
         clone_counts = self._get_counts(clones, "clones")
-        return self._create_dataframe(clone_counts, "clones", clones_path)
+        snapshot_df = self._create_snapshot_dataframe(clone_counts, "clones")
+        cumulative_df = self._create_cumulative_dataframe(clone_counts, "clones", clones_path)
+        return snapshot_df, cumulative_df
+
+    def _create_snapshot_dataframe(self, data, metric_type):
+        total_column = f"total_{metric_type}"
+        unique_column = f"unique_{metric_type}"
+        df = pd.DataFrame.from_dict(data, orient="index", columns=[total_column, unique_column])
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index().last('14D')
+        snapshot_path = os.path.join(self.snapshot_folder, f"{metric_type}_{datetime.now().strftime('%Y-%m-%d')}.csv")
+        df.to_csv(snapshot_path)
+        return df
     
     def get_top_referral_sources(self, referral_sources_path):
         sources = self._make_request("popular/referrers")
@@ -87,7 +111,7 @@ class RepoStats:
         
         return counts
 
-    def _create_dataframe(self, data, metric_type, file_path):
+    def _create_cumulative_dataframe(self, data, metric_type, file_path):
         total_column = f"total_{metric_type}"
         unique_column = f"unique_{metric_type}"
         try:

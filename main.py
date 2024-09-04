@@ -2,6 +2,8 @@ import os
 import json
 from repostats import RepoStats
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
 import requests
 
 
@@ -40,17 +42,31 @@ def upload(repo_name, views_frame, clones_frame, api_key):
 
 
 def create_plots(views_frame, clones_frame, plots_path):
-    fig, axes = plt.subplots(nrows=2)
+    fig, axes = plt.subplots(nrows=2, figsize=(12, 10))
     fig.tight_layout(h_pad=6)
 
-    # Consider letting users configure plots
-    # traffic_weekly = traffic_frame.resample("W", label="left").sum().tail(12)
-    # clones_weekly = clones_frame.resample("W", label="left").sum().tail(12)
-    if not views_frame.empty:
-        views_frame.tail(30).plot(ax=axes[0])
-    if not clones_frame.empty:
-        clones_frame.tail(30).plot(ax=axes[1])
-    plt.savefig(plots_path)
+    for i, (frame, title) in enumerate([(views_frame, 'Views'), (clones_frame, 'Clones')]):
+        if not frame.empty:
+            ax = frame.tail(30).plot(ax=axes[i])
+            
+            # Rotate and align the tick labels so they look better
+            ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+            
+            # Add labels and title
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Count')
+            ax.set_title(f'Repository {title} - Last 30 Days')
+            
+            # Add legend
+            ax.legend(loc='upper left')
+            
+            # Adjust layout to prevent cutoff
+            plt.tight_layout()
+
+    plt.savefig(plots_path, bbox_inches='tight')
+    plt.close(fig)
 
 
 if __name__ == "__main__":

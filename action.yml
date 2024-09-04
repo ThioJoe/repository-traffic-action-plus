@@ -1,5 +1,5 @@
 name: 'Repository Traffic Plus'
-author: ThioJoe (Forked From: Santiago Gonzalez)
+author: 'ThioJoe (Forked From: Santiago Gonzalez)'
 description: 'Stores GitHub repository traffic data past the default 2 week period'
 
 inputs:

@@ -16,7 +16,7 @@ You'll first need to create a fine grained personal access token (PAT) so the ac
 You can generate a PAT by going to 
 Settings -> Developer Settings -> Personal Access Tokens -> Generate new token. 
 
-If you just want to save the files externally (like to AWS S3), you will just need to grant a read-only "Administrative" permission under "Repositor Permissions".
+If you just want to save the files externally (like to AWS S3), you will just need to grant a read-only "Administrative" permission under "Repository Permissions".
 
 To have the stats committed to the repo, you will need to grant read & write "contents" permission. For more in depth instructions, see the [GitHub documentation](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
 
@@ -115,15 +115,15 @@ jobs:
     #    DEST: 'traffic'
     
     # Calculates traffic and clones and stores in CSV file
-	# This would be for the current repo running the action, but you can add the REPOSITORY_NAME variable to fetch another repo's stats (see next section for example).
+    # This would be for the current repo running the action, but you can add the REPOSITORY_NAME variable to fetch another repo's stats (see next section for example).
     - name: Repository Traffic Plus
       uses: ThioJoe/repository-traffic-action-plus@v0.2.2
       env:
         TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }}
      
     # Upload to S3
-	# Be sure to set the proper AWS region for your bucket.
-	# You can set "DEST_DIR" to whatever folder name you want within the bucket, but do not change the SOURCE_DIR, that is the temporary folder name within the github workspace
+    # Be sure to set the proper AWS region for your bucket.
+    # You can set "DEST_DIR" to whatever folder name you want within the bucket, but do not change the SOURCE_DIR, that is the temporary folder name within the github workspace
     - name: S3 Sync
       uses: jakejarvis/s3-sync-action@v0.5.1
       with:
@@ -147,4 +147,68 @@ If you'd like to get stats from a different repository than the one that you are
       env:
         TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }}
         REPOSITORY_NAME: "YourUsername/Whatever-Repo-Name-To-Get-Stats"
+```
+
+# AWS S3 Policy Examples
+Example of Amazon/AWS S3 IAM policies you can assign to a user and use with the action.
+Note: I'm not an expert on this so it might be possible to pare down the permissions a bit more, but these should still be pretty good to limit the scope of the permissions.
+
+## Write-Only Policy for Private Bucket(s)
+This would allow writing files but not downloading them from a private bucket, like if you don't care about the main CSV file being updated with the cumulative data, and only care about the snapshot archives being generated during each run for archiving purposes.
+
+*Note:* The `ListBucket` permission will still allow listing items in the bucket, but not downloading them. And even though the `DeleteObject` permission isn't given, PutObject still allows overwriting.
+
+In this example the bucket is called `example-bucket-name-one`. (And optionally additional buckets such as `example-bucket-name-two`, or you could create separate users/policies for each bucket).
+
+```JSON
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:ListBucket",
+                "s3:PutBucketVersioning"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-bucket-name-one",
+                "arn:aws:s3:::example-bucket-name-one/*",
+		"arn:aws:s3:::example-bucket-name-two",
+                "arn:aws:s3:::example-bucket-name-two/*"
+            ]
+        }
+    ]
+}
+```
+
+## Read-Write Policy for Private Bucket(s)
+
+Allows access download files from the bucket, so it can also retrieve the cumulative stats files and update them, in addition to just saving snapshots.
+
+Note: I haven't tried this one myself, but I think it should work, it's the same as above but I just added the `GetObject` permission.
+
+```JSON
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+		"s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutBucketVersioning"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-bucket-name-one",
+                "arn:aws:s3:::example-bucket-name-one/*",
+		"arn:aws:s3:::example-bucket-name-two",
+                "arn:aws:s3:::example-bucket-name-two/*"
+            ]
+        }
+    ]
+}
 ```

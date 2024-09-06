@@ -1,4 +1,4 @@
-# Repository Traffic GitHub Action
+# Repository Traffic GitHub Action (Plus)
 
 Github action that can be used to store repository traffic and clones past the default 2 week period. It pulls traffic, clones, referral sources, and referral paths data from the GitHub API v3 and stores it into CSV files, which can be committed to your repository or uploaded elsewhere.
 
@@ -212,3 +212,30 @@ Note: I haven't tried this one myself, but I think it should work, it's the same
     ]
 }
 ```
+
+## How to Use the AWS Policies
+
+### Creating a new "user" specifically to use for the workflow with limited permissions:
+
+ 1. In AWS go to "Identity and Access Management (IAM)", then on the left under "Access Management" click "Users", then on the right click the button that says "Create User".
+ 2. Give it a descriptive name like "my-github-action-user" then hit Next.
+ 3. On the permissions page, select "Attach Policies Directly". Then look for the button that says "Create Policy". It will open a new tab/window to specify permissions. 
+ 4. In this new window, next to where it says "Policy Editor", switch the blue toggle to "JSON" (instead of the default Visual). Delete everything in the text box and paste in one of the policies above. Then hit Next.
+ 5. On the following page give the policy a descriptive name like "Write-Only-GitHub-Traffic-Bucket-Policy" or whatever you want. Then hit "Create Policy".
+ 6. Back in the window for setting permissions for the new user, click the Refresh button which is next to that 'Create Policy' button you clicked before. Then under "Permission Policies", either search for your the name of the policy you created, or in the "Filter by Type" dropdown, select "Customer Managed" and it will list only ones you've created.
+ 7. Click the checkbox next to your policy then hit Next. And on the next page click 'Create User'.
+
+#### Alternatively, if you already created a user but just need to add the policy permission:
+
+1. Assuming you already created a new user specifically to use for the workflow but didn't give it any permissions, go to the user page (In IAM > Users > WhateverUserName).
+2. Then in the section that says “Permission Policies”, you’d click the dropdown that says “Add Permissions” > “Create Inline Policy”.
+3. Then on the page that shows up, there should be a toggle on the right between “Visual” and “JSON” editor, so just click JSON, then delete anything there and replace it with the policy below. Then just hit next and continue on to save it.
+
+### Getting the access keys for the AWS User to use in the action:
+
+1. Navigate to the relevant user (In IAM > Users > WhateverUserName)
+2. In the main part of the page below the 'Summary' box, look for the "Security credentials" tab and click that. (The default selected tab is 'Permissions, so look near that if you can't find it)
+3. Scroll down to the section called "Access Keys" and click the "Create access key" button.
+4. Select a use case, but I don't think this is very important. I chose 'Application running outside AWS'.  They all seem to give one warning or another about recommended alternatives, but I'm not familiar with all that. Then hit Next.
+5. On this page give it a description and click the "Create Access Key" button.
+6. Then on the next page you can copy the Access key (to set as the `AWS_ACCESS_KEY_ID` github environment variable) and Secret access key (to set as the `AWS_SECRET_ACCESS_KEY` environment variable)

@@ -40,9 +40,11 @@ This action stores the generated data in `${GITHUB_WORKPLACE}/traffic`. It creat
 
 You can integrate other actions into the workflow to commit these files to your repository or upload them elsewhere. Below are two examples.
 
- ### Sample workflow that runs weekly and commits files to repository.
+ ### Full Sample workflow that runs weekly and commits files to repository.
 
 ```yaml
+name: TrafficStatsPlusExampleWorkflow
+
 on:
   schedule: 
     # runs once a week on sunday
@@ -104,7 +106,7 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    # Download from S3 - Leave this commented out if you only want the snapshots and don't care about the cumulative data files
+    # Download from S3 - Leave this commented out if you only want the snapshots and don't care about the cumulative/combined CSV files
     #- uses: prewk/s3-cp-action@master
     #  env:
     #    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

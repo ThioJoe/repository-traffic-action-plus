@@ -1,14 +1,24 @@
 # Repository Traffic GitHub Action
 
-Github action that can be used to store repository traffic and clones past the default 2 week period. It pulls traffic and clones data from the GitHub API v3 and stores it into a csv file, which can be commited to your repository or uploaded elsewhere. 
+Github action that can be used to store repository traffic and clones past the default 2 week period. It pulls traffic, clones, referral sources, and referral paths data from the GitHub API v3 and stores it into CSV files, which can be committed to your repository or uploaded elsewhere.
+
+# Features
+
+- **Referral Website Data**: Now collects top referral sources (website domains) and referral paths in addition to repo views and clones.
+- **Statistics Snapshot Archives**: Upon each run, in addition to the cumulative stats file, it creates a date-stamped zip archive containing all the generated files for that run.
+- **Cumulative Data**: Maintains cumulative CSV files for long-term trend analysis.
 
 # Usage
 
 ## Setting up permissions
-You'll first need to create a personal access token (PAT) so the action can access the GitHub API. 
+You'll first need to create a fine grained personal access token (PAT) so the action can access the GitHub API. 
 
 You can generate a PAT by going to 
-Settings -> Developer Settings -> Personal Access Tokens -> Generate new token. You will need to grant "repo" permission. For more in depth instructions, see the [GitHub documentation](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
+Settings -> Developer Settings -> Personal Access Tokens -> Generate new token. 
+
+If you just want to save the files externally (like to AWS S3), you will just need to grant a read-only "Administrative" permission under "Repositor Permissions".
+
+To have the stats committed to the repo, you will need to grant read & write "contents" permission. For more in depth instructions, see the [GitHub documentation](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
 
 After you have generated the PAT, go to the "Settings" tab of the repository, click on New Secret, name the secret "TRAFFIC_ACTION_TOKEN" and copy the PAT into the box.
 
@@ -17,14 +27,18 @@ After you have generated the PAT, go to the "Settings" tab of the repository, cl
 Create a `workflow.yml` file and place in your `.github/workflows` folder. You can reference the action from this workflow. The only required parameter is setting the PAT that was generated when setting up the permissions.
 ```yaml
     steps:
-    # Calculates traffic and clones and stores in CSV file
+    # Calculates traffic, clones, and referral data and stores in CSV files
     - name: Repository Traffic 
-      uses: sangonzal/repository-traffic-action@v.0.1.6
+      uses: ThioJoe/repository-traffic-action-plus@v0.2.2
       env:
         TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }} 
 ```
 
-This actions does not store the generated data anywhere by default. It temporarily stores it in `${GITHUB_WORKPLACE}/traffic`, but unless it's exported it will be lost. You can integrate other actions into the workflow to upload data elsewhere. Below are two examples.
+This action stores the generated data in `${GITHUB_WORKPLACE}/traffic`. It creates the following files:
+- Cumulative data: `views.csv`, `clones.csv`, `referral_sources.csv`, `referral_paths.csv`
+- Snapshot: A zip file named `YYYY-MM-DD_snapshot.zip` containing the last 14 days of data
+
+You can integrate other actions into the workflow to commit these files to your repository or upload them elsewhere. Below are two examples.
 
  ### Sample workflow that runs weekly and commits files to repository.
 
@@ -47,9 +61,9 @@ jobs:
       with:
         ref: "traffic"
     
-    # Calculates traffic and clones and stores in CSV file
+    # Calculates traffic, clones, and referral data and stores in CSV files
     - name: GitHub traffic 
-      uses: sangonzal/repository-traffic-action@v.0.1.6
+      uses: ThioJoe/repository-traffic-action-plus@v0.2.2
       env:
         TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }} 
      
@@ -68,13 +82,16 @@ jobs:
 
 ### Sample workflow that runs weekly and uploads files to S3.
  
-If you'd like to avoid commiting the data to the repository, you can use another action to upload elsewhere. For example, you could download and upload files from S3 using other github actions.
+If you'd like to avoid committing the data to the repository, you can use another action to upload elsewhere. For example, you could download and upload files from S3 using other github actions.
 
 ```yaml
+name: TrafficStatsPlusExampleWorkflow
+
 on:
   schedule: 
     # runs once a week on sunday
     - cron: "55 23 * * 0"
+  workflow_dispatch:
     
 jobs:
   # This workflow contains a single job called "traffic"
@@ -87,40 +104,45 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    # Download from S3
-    - uses: prewk/s3-cp-action@master
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        SOURCE: 's3://some-bucket/something-remote'
-        DEST: 'traffic'
+    # Download from S3 - Leave this commented out if you only want the snapshots and don't care about the cumulative data files
+    #- uses: prewk/s3-cp-action@master
+    #  env:
+    #    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #    SOURCE: 's3://some-bucket/whatever-folder-name-within-bucket'
+    #    DEST: 'traffic'
     
     # Calculates traffic and clones and stores in CSV file
-    - name: Repository Traffic 
-      uses: sangonzal/repository-traffic-action@v.0.1.6
+	# This would be for the current repo running the action, but you can add the REPOSITORY_NAME variable to fetch another repo's stats (see next section for example).
+    - name: Repository Traffic Plus
+      uses: ThioJoe/repository-traffic-action-plus@v0.2.2
       env:
-        TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }} 
+        TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }}
      
-     # Upload to S3
+    # Upload to S3
+	# Be sure to set the proper AWS region for your bucket.
+	# You can set "DEST_DIR" to whatever folder name you want within the bucket, but do not change the SOURCE_DIR, that is the temporary folder name within the github workspace
     - name: S3 Sync
       uses: jakejarvis/s3-sync-action@v0.5.1
       with:
-        args: --acl public-read --follow-symlinks --delete
+        args: --follow-symlinks
       env:
         AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: 'us-west-2'
+        DEST_DIR: 'whatever-folder-name-within-bucket'
         SOURCE_DIR: 'traffic'
 ```
 ## Running from a different repository
-If you'd like to get stats from a different repository than the one that you are running the github action, you can set the env variable "REPOSITORY_NAME". REPOSITORY_NAME should be formatted as "username/repository_name" or "organization_name/repository_name". The personal access token that you created in the first step should have access to the repository. For example, if I was to set up a a github action in a different repository to store stats for this repo, the workflow file would look like this:
+If you'd like to get stats from a different repository than the one that you are running the github action, you can set the env variable "REPOSITORY_NAME". REPOSITORY_NAME should be formatted as "username/repository_name" or "organization_name/repository_name". The personal access token that you created in the first step should have access to the repository. For example:
 
 ```yaml
     steps:
-    # Calculates traffic and clones and stores in CSV file
+    # Calculates traffic, clones, and referral data and stores in CSV files
     - name: Repository Traffic 
-      uses: sangonzal/repository-traffic-action@v.0.1.6
+      uses: ThioJoe/repository-traffic-action-plus@v0.2.2
       env:
         TRAFFIC_ACTION_TOKEN: ${{ secrets.TRAFFIC_ACTION_TOKEN }}
-        REPOSITORY_NAME: "sangonzal/repository-traffic-action"
+        REPOSITORY_NAME: "YourUsername/Whatever-Repo-Name-To-Get-Stats"
 ```
